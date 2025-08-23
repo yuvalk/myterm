@@ -1,0 +1,23 @@
+Package: myterm
+Version: 0.1.0
+Architecture: amd64
+Maintainer: Yuval K <yuvalk@example.com>
+Depends: libwayland-client0, libxkbcommon0, libegl1, libfontconfig1, libfreetype6, libharfbuzz0b
+Section: utils
+Priority: optional
+Homepage: https://github.com/yuvalk/myterm
+Description: Modern terminal emulator for Sway and Wayland
+ MyTerm is a fast, modern terminal emulator designed specifically for
+ Sway window manager and Wayland protocol. It provides excellent
+ performance, Unicode support, and seamless integration with Sway's
+ tiling capabilities.
+ .
+ Features include:
+  * Native Wayland support
+  * True color (24-bit) support
+  * GPU acceleration
+  * Configurable fonts and themes
+  * ANSI/VT100/VT220 terminal emulation
+  * Scrollback buffer with search
+  * Copy/paste integration
+  * HiDPI support

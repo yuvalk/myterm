@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MyTerm
+Comment=Modern terminal emulator for Sway and Wayland
+GenericName=Terminal Emulator
+Exec=myterm
+Icon=myterm
+Terminal=false
+Categories=System;TerminalEmulator;
+Keywords=terminal;shell;command;prompt;sway;wayland;
+StartupNotify=true
+StartupWMClass=myterm

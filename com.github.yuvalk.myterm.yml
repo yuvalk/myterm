@@ -1,0 +1,43 @@
+app-id: com.github.yuvalk.myterm
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: myterm
+
+finish-args:
+  # Wayland access
+  - --socket=wayland
+  # Fallback to X11
+  - --socket=fallback-x11
+  # GPU acceleration
+  - --device=dri
+  # Font access
+  - --filesystem=xdg-config/fontconfig:ro
+  - --filesystem=/usr/share/fonts:ro
+  - --filesystem=~/.local/share/fonts:ro
+  # Shell access (required for terminal)
+  - --talk-name=org.freedesktop.Flatpak
+  - --filesystem=host
+  # Session bus (for clipboard, etc.)
+  - --socket=session-bus
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  build-args:
+    - --share=network
+  env:
+    CARGO_HOME: /run/build/myterm/cargo
+
+modules:
+  - name: myterm
+    buildsystem: simple
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo --offline build --release --verbose
+      - install -Dm755 target/release/myterm -t /app/bin/
+      - install -Dm644 myterm.desktop -t /app/share/applications/
+    sources:
+      - type: dir
+        path: .
