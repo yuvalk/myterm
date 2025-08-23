@@ -97,6 +97,19 @@ package-flatpak:
 	@echo "Creating Flatpak package..."
 	flatpak-builder --force-clean build-dir com.github.yuvalk.myterm.yml
 
+# Update AUR packages (requires Arch Linux)
+aur-update-stable:
+	@echo "Updating AUR stable package..."
+	./aur/update-aur.sh update-stable $(shell grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+
+aur-update-git:
+	@echo "Updating AUR git package..."
+	./aur/update-aur.sh update-git
+
+aur-test:
+	@echo "Testing AUR packages..."
+	./aur/update-aur.sh test
+
 # Show help
 help:
 	@echo "Available targets:"
@@ -117,4 +130,7 @@ help:
 	@echo "  package-rpm   - Create RPM package"
 	@echo "  package-appimage - Create AppImage"
 	@echo "  package-flatpak  - Create Flatpak package"
+	@echo "  aur-update-stable - Update AUR stable package"
+	@echo "  aur-update-git    - Update AUR git package"
+	@echo "  aur-test      - Test AUR packages"
 	@echo "  help          - Show this help message"

@@ -1,0 +1,26 @@
+pkgbase = myterm-git
+	pkgdesc = A modern terminal emulator for Sway and Wayland (git version)
+	pkgver = r1.dbc60f0
+	pkgrel = 1
+	url = https://github.com/yuvalk/myterm
+	arch = x86_64
+	arch = aarch64
+	license = MIT
+	license = Apache-2.0
+	makedepends = rust
+	makedepends = cargo
+	makedepends = git
+	makedepends = wayland-protocols
+	makedepends = pkgconf
+	depends = wayland
+	depends = libxkbcommon
+	depends = mesa
+	depends = fontconfig
+	depends = freetype2
+	depends = harfbuzz
+	provides = myterm
+	conflicts = myterm
+	source = myterm-git::git+https://github.com/yuvalk/myterm.git
+	sha256sums = SKIP
+
+pkgname = myterm-git

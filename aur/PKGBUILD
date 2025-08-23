@@ -1,0 +1,50 @@
+# Maintainer: Yuval K <yuvalk@example.com>
+pkgname=myterm
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A modern terminal emulator for Sway and Wayland"
+arch=('x86_64' 'aarch64')
+url="https://github.com/yuvalk/myterm"
+license=('MIT' 'Apache-2.0')
+depends=('wayland' 'libxkbcommon' 'mesa' 'fontconfig' 'freetype2' 'harfbuzz')
+makedepends=('rust' 'cargo' 'wayland-protocols' 'pkgconf')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/yuvalk/myterm/archive/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # Will be updated when we create actual releases
+backup=()
+options=()
+
+prepare() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release --all-features
+}
+
+check() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo test --frozen --all-features
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    
+    # Install binary
+    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/$pkgname"
+    
+    # Install desktop file
+    install -Dm0644 -t "$pkgdir/usr/share/applications/" "$pkgname.desktop"
+    
+    # Install documentation
+    install -Dm0644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+    
+    # Install licenses
+    install -Dm0644 LICENSE-MIT "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
+    install -Dm0644 LICENSE-APACHE "$pkgdir/usr/share/licenses/$pkgname/LICENSE-APACHE"
+}

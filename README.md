@@ -84,6 +84,22 @@ wget https://github.com/yuvalk/myterm/releases/latest/download/myterm.deb
 sudo dpkg -i myterm.deb
 ```
 
+#### Arch Linux (AUR)
+```bash
+# Using an AUR helper (recommended)
+yay -S myterm          # Stable release
+yay -S myterm-git      # Latest development version
+
+# Or with paru
+paru -S myterm
+paru -S myterm-git
+
+# Manual installation
+git clone https://aur.archlinux.org/myterm.git
+cd myterm
+makepkg -si
+```
+
 #### Flatpak
 ```bash
 flatpak install flathub com.github.yuvalk.myterm
