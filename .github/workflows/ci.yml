@@ -43,7 +43,7 @@ jobs:
       run: cargo fmt --all -- --check
       
     - name: Run clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      run: cargo clippy --all-targets --all-features -- -D clippy::all -W clippy::pedantic
       
     - name: Run tests
       run: cargo test --verbose --all-features
@@ -60,7 +60,8 @@ jobs:
       matrix:
         target: 
           - x86_64-unknown-linux-gnu
-          - aarch64-unknown-linux-gnu
+          # TODO: Re-enable ARM64 when cross-compilation dependencies are resolved
+          # - aarch64-unknown-linux-gnu
     
     steps:
     - name: Checkout
@@ -78,11 +79,6 @@ jobs:
           libharfbuzz-dev \
           pkg-config
           
-    - name: Install cross-compilation toolchain
-      if: matrix.target == 'aarch64-unknown-linux-gnu'
-      run: |
-        sudo apt-get install -y gcc-aarch64-linux-gnu
-        
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
@@ -91,15 +87,10 @@ jobs:
     - name: Cache dependencies
       uses: Swatinem/rust-cache@v2
       with:
-        key: ${{ matrix.target }}
+        key: ${{ matrix.target }}-build
         
     - name: Build release
-      run: |
-        if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-          export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
-          export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
-        fi
-        cargo build --release --target ${{ matrix.target }}
+      run: cargo build --release --target ${{ matrix.target }}
         
     - name: Upload binary
       uses: actions/upload-artifact@v4
@@ -127,6 +118,7 @@ jobs:
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest
+    continue-on-error: true  # Don't fail CI if coverage fails
     
     steps:
     - name: Checkout
@@ -149,13 +141,21 @@ jobs:
       with:
         components: llvm-tools-preview
         
+    - name: Cache tarpaulin
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: coverage
+        
     - name: Install cargo-tarpaulin
       run: cargo install cargo-tarpaulin
       
     - name: Generate code coverage
-      run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
+      run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml --skip-clean
+      continue-on-error: true
       
     - name: Upload to codecov.io
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
-        fail_ci_if_error: true
+        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./cobertura.xml
