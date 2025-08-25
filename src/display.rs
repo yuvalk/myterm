@@ -61,7 +61,17 @@ impl Display {
             
             match self.event_queue.prepare_read() {
                 Some(guard) => {
-                    guard.read().context("Failed to read events")?;
+                    match guard.read() {
+                        Ok(_) => {},
+                        Err(e) => {
+                            // Check if this is a WouldBlock error and handle it gracefully
+                            let error_string = format!("{:?}", e);
+                            if error_string.contains("EAGAIN") || error_string.contains("WouldBlock") {
+                                continue;
+                            }
+                            return Err(anyhow::Error::from(e)).context("Failed to read events");
+                        }
+                    }
                 }
                 None => {
                     // Events are pending, process them in the next loop iteration
