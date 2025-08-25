@@ -426,8 +426,10 @@ impl Terminal {
     
     pub async fn next_output(&mut self) -> Result<Option<Vec<u8>>> {
         let mut buf = vec![0u8; 4096];
-        match self.pty.read(&mut buf).await {
-            Ok(n) => {
+        
+        // Use timeout to avoid blocking forever
+        match tokio::time::timeout(std::time::Duration::from_millis(100), self.pty.read(&mut buf)).await {
+            Ok(Ok(n)) if n > 0 => {
                 buf.truncate(n);
                 
                 // Parse the output through VTE
@@ -435,9 +437,22 @@ impl Terminal {
                     self.parser.advance(&mut self.performer, byte);
                 }
                 
+                log::debug!("Read {} bytes from PTY", n);
                 Ok(Some(buf))
             }
-            Err(_) => Ok(None),
+            Ok(Ok(_)) => {
+                // Read 0 bytes, PTY might be closed
+                log::debug!("PTY read returned 0 bytes");
+                Ok(None)
+            }
+            Ok(Err(e)) => {
+                log::debug!("PTY read error: {}", e);
+                Ok(None)
+            }
+            Err(_) => {
+                // Timeout - no data available
+                Ok(None)
+            }
         }
     }
     

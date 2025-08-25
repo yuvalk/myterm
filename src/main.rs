@@ -54,14 +54,18 @@ impl MyTermApp {
         info!("MyTerm application started");
         
         loop {
+            debug!("Waiting for events...");
             tokio::select! {
                 display_event = self.display.next_event() => {
+                    debug!("Got display event");
                     match display_event? {
                         display::Event::Resize(width, height) => {
+                            debug!("Resize event: {}x{}", width, height);
                             self.terminal.resize(width, height)?;
                             self.display.render(&self.terminal).await?;
                         }
                         display::Event::Key(key) => {
+                            debug!("Key event: {:?}", key);
                             let bytes = key.to_bytes();
                             if !bytes.is_empty() {
                                 self.terminal.write_to_pty(&bytes).await?;
@@ -75,7 +79,9 @@ impl MyTermApp {
                     }
                 }
                 terminal_output = self.terminal.next_output() => {
-                    if let Some(_output) = terminal_output? {
+                    debug!("Got terminal output");
+                    if let Some(output) = terminal_output? {
+                        debug!("Terminal output: {} bytes", output.len());
                         self.display.render(&self.terminal).await?;
                     }
                 }

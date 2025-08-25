@@ -14,7 +14,7 @@ use smithay_client_toolkit::{
     shell::{
         xdg::{
             window::{Window, WindowConfigure, WindowHandler},
-            XdgShell,
+            XdgShell, XdgSurface,
         },
         WaylandSurface,
     },
@@ -100,18 +100,29 @@ impl WaylandState {
     }
     
     pub fn create_window(&mut self, qh: &QueueHandle<Self>) -> Result<()> {
+        log::debug!("Creating Wayland window");
         let surface = self.compositor_state.create_surface(qh);
+        log::debug!("Created surface");
+        
         let window = self.xdg_shell.create_window(
             surface, 
             smithay_client_toolkit::shell::xdg::window::WindowDecorations::RequestServer, 
             qh
         );
+        log::debug!("Created XDG window");
         
         window.set_title("MyTerm");
         window.set_app_id("myterm");
+        
+        // Set initial window size
+        window.set_min_size(Some((400, 300)));
+        window.set_max_size(Some((2000, 1500)));
+        
+        log::debug!("Committing window configuration");
         window.commit();
         
         self.window = Some(window);
+        log::debug!("Window creation completed");
         Ok(())
     }
     
@@ -264,11 +275,21 @@ impl WindowHandler for WaylandState {
         configure: WindowConfigure,
         _serial: u32,
     ) {
+        log::debug!("Window configure event: {:?}", configure);
+        
         if let (Some(width), Some(height)) = configure.new_size {
             self.width = width.get();
             self.height = height.get();
+            log::debug!("New window size: {}x{}", self.width, self.height);
             let _ = self.event_sender.send(Event::Resize(self.width, self.height));
+        } else {
+            // Use default size if none specified  
+            self.width = 800;
+            self.height = 600;
+            log::debug!("Using default window size: {}x{}", self.width, self.height);
         }
+        
+        log::debug!("Window configured");
     }
 }
 
