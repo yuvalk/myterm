@@ -8,6 +8,7 @@ pub struct Key {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum KeyCode {
     Char(char),
     Enter,
@@ -48,18 +49,22 @@ impl Key {
         Self { code, modifiers }
     }
     
+    #[allow(dead_code)]
     pub fn char(c: char) -> Self {
         Self::new(KeyCode::Char(c), Modifiers::empty())
     }
     
+    #[allow(dead_code)]
     pub fn ctrl(c: char) -> Self {
         Self::new(KeyCode::Char(c), Modifiers::CTRL)
     }
     
+    #[allow(dead_code)]
     pub fn alt(c: char) -> Self {
         Self::new(KeyCode::Char(c), Modifiers::ALT)
     }
     
+    #[allow(dead_code)]
     pub fn shift(c: char) -> Self {
         Self::new(KeyCode::Char(c), Modifiers::SHIFT)
     }
@@ -214,6 +219,7 @@ impl fmt::Display for Key {
     }
 }
 
+#[allow(dead_code)]
 pub fn parse_key_binding(s: &str) -> Result<Key> {
     let parts: Vec<&str> = s.split('+').collect();
     let mut modifiers = Modifiers::empty();
@@ -241,7 +247,7 @@ pub fn parse_key_binding(s: &str) -> Result<Key> {
             "escape" => key_code = Some(KeyCode::Escape),
             s if s.starts_with('f') && s.len() > 1 => {
                 if let Ok(n) = s[1..].parse::<u8>() {
-                    if n >= 1 && n <= 12 {
+                    if (1..=12).contains(&n) {
                         key_code = Some(KeyCode::F(n));
                     }
                 }

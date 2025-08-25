@@ -1,6 +1,5 @@
 use anyhow::Result;
 use log::{debug, info, warn};
-use std::env;
 
 mod config;
 mod display;
@@ -36,6 +35,7 @@ async fn main() -> Result<()> {
 }
 
 struct MyTermApp {
+    #[allow(dead_code)]
     config: Config,
     display: Display,
     terminal: Terminal,
@@ -75,7 +75,7 @@ impl MyTermApp {
                     }
                 }
                 terminal_output = self.terminal.next_output() => {
-                    if let Some(output) = terminal_output? {
+                    if let Some(_output) = terminal_output? {
                         self.display.render(&self.terminal).await?;
                     }
                 }

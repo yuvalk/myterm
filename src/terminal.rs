@@ -10,11 +10,14 @@ pub struct Terminal {
     pty: Pty,
     parser: Parser,
     performer: TerminalPerformer,
+    #[allow(dead_code)]
     output_receiver: Receiver<Vec<u8>>,
+    #[allow(dead_code)]
     input_sender: Sender<Vec<u8>>,
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Cell {
     pub c: char,
     pub fg: rgb::RGB8,
@@ -37,6 +40,7 @@ bitflags::bitflags! {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Cursor {
     pub row: usize,
     pub col: usize,
@@ -60,10 +64,12 @@ pub struct TerminalPerformer {
     pub current_fg: rgb::RGB8,
     pub current_bg: rgb::RGB8,
     pub current_flags: CellFlags,
+    #[allow(dead_code)]
     pub saved_cursor: Option<Cursor>,
     pub scroll_region: (usize, usize),
     pub insert_mode: bool,
     pub auto_wrap_mode: bool,
+    #[allow(dead_code)]
     pub origin_mode: bool,
     pub title: String,
 }
@@ -117,6 +123,7 @@ impl Grid {
         }
     }
     
+    #[allow(dead_code)]
     pub fn scroll_down(&mut self, lines: usize) {
         for _ in 0..lines {
             if let Some(row) = self.scrollback.pop_back() {
@@ -411,6 +418,7 @@ impl Terminal {
         Ok(())
     }
     
+    #[allow(dead_code)]
     pub fn handle_key(&mut self, _key: crate::input::Key) -> Result<()> {
         // Key handling implementation would go here
         Ok(())
@@ -437,10 +445,12 @@ impl Terminal {
         &self.performer.grid
     }
     
+    #[allow(dead_code)]
     pub fn cursor(&self) -> &Cursor {
         &self.performer.cursor
     }
     
+    #[allow(dead_code)]
     pub fn title(&self) -> &str {
         &self.performer.title
     }

@@ -50,7 +50,9 @@ pub struct WaylandState {
 
 #[derive(Debug)]
 pub enum Event {
+    #[allow(dead_code)]
     Resize(u32, u32),
+    #[allow(dead_code)]
     Key(Key),
     Close,
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub display: DisplayConfig,
     pub terminal: TerminalConfig,
@@ -76,17 +76,6 @@ pub enum CursorShape {
     Beam,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            display: DisplayConfig::default(),
-            terminal: TerminalConfig::default(),
-            font: FontConfig::default(),
-            colors: ColorConfig::default(),
-            keybindings: KeybindingConfig::default(),
-        }
-    }
-}
 
 impl Default for DisplayConfig {
     fn default() -> Self {
@@ -226,8 +215,7 @@ impl Config {
 }
 
 pub fn parse_color(color_str: &str) -> Result<rgb::RGB8> {
-    if color_str.starts_with('#') {
-        let hex = &color_str[1..];
+    if let Some(hex) = color_str.strip_prefix('#') {
         if hex.len() != 6 {
             return Err(anyhow::anyhow!("Invalid color format: {}", color_str));
         }

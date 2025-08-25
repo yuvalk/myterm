@@ -11,10 +11,12 @@ pub struct Display {
     wayland_state: WaylandState,
     connection: Connection,
     event_queue: EventQueue<WaylandState>,
+    #[allow(dead_code)]
     event_receiver: Option<Receiver<Event>>,
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Event {
     Resize(u32, u32),
     Key(crate::input::Key),
@@ -86,6 +88,7 @@ impl Display {
         Ok(())
     }
     
+    #[allow(dead_code)]
     pub fn resize(&mut self, width: u32, height: u32) -> Result<()> {
         log::debug!("Display resize: {}x{}", width, height);
         Ok(())

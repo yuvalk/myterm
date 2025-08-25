@@ -119,10 +119,12 @@ impl Pty {
         Ok(())
     }
     
+    #[allow(dead_code)]
     pub fn child_pid(&self) -> Option<Pid> {
         self.child_pid
     }
     
+    #[allow(dead_code)]
     pub fn send_signal(&self, sig: Signal) -> Result<()> {
         if let Some(pid) = self.child_pid {
             signal::kill(pid, sig)?;
