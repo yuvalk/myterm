@@ -154,7 +154,7 @@ async fn main() {
 
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "bash".to_string());
     let cmd = CommandBuilder::new(shell);
-    let _child = pair.slave.spawn_command(cmd).unwrap();
+    let mut child = pair.slave.spawn_command(cmd).unwrap();
 
     let terminal = Arc::new(Mutex::new(Terminal::new(24, 80)));
     let terminal_clone = terminal.clone();
@@ -166,20 +166,34 @@ async fn main() {
     let proxy = event_loop.create_proxy();
     let redraw_pending = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let redraw_pending_clone = redraw_pending.clone();
+    
+    let proxy_child = proxy.clone();
+    thread::spawn(move || {
+        let _ = child.wait();
+        let _ = proxy_child.send_event(CustomEvent::Exit);
+    });
 
     thread::spawn(move || {
         let mut buffer = [0u8; 4096];
-        while let Ok(n) = reader.read(&mut buffer) {
-            if n == 0 { break; }
-            {
-                let mut term = terminal_clone.lock().unwrap();
-                term.advance(&buffer[..n]);
-            }
-            if !redraw_pending_clone.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                let _ = proxy.send_event(CustomEvent::Redraw);
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => {
+                    break;
+                }
+                Ok(n) => {
+                    {
+                        let mut term = terminal_clone.lock().unwrap();
+                        term.advance(&buffer[..n]);
+                    }
+                    if !redraw_pending_clone.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                        let _ = proxy.send_event(CustomEvent::Redraw);
+                    }
+                }
+                Err(_) => {
+                    break;
+                }
             }
         }
-        let _ = proxy.send_event(CustomEvent::Exit);
     });
 
     event_loop.set_control_flow(ControlFlow::Wait);
