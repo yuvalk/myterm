@@ -19,6 +19,7 @@ struct App {
     window: Option<Arc<Window>>,
     pty_master: Box<dyn MasterPty + Send>,
     pty_writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    redraw_pending: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl ApplicationHandler<()> for App {
@@ -70,8 +71,8 @@ impl ApplicationHandler<()> for App {
             WindowEvent::RedrawRequested => {
                 let start = std::time::Instant::now();
                 if let (Some(renderer), Some(_window)) = (&mut self.renderer, &self.window) {
-                    let term = self.terminal.lock().unwrap();
-                    renderer.render(&term);
+                    let mut term = self.terminal.lock().unwrap();
+                    renderer.render(&mut term);
                 }
                 let duration = start.elapsed();
                 log::trace!("Render took {:?}", duration);
@@ -120,6 +121,7 @@ impl ApplicationHandler<()> for App {
     }
 
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
+        self.redraw_pending.store(false, std::sync::atomic::Ordering::SeqCst);
         if let Some(window) = &self.window {
             window.request_redraw();
         }
@@ -150,6 +152,8 @@ async fn main() {
     
     let event_loop = EventLoop::<()>::with_user_event().build().unwrap();
     let proxy = event_loop.create_proxy();
+    let redraw_pending = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let redraw_pending_clone = redraw_pending.clone();
 
     thread::spawn(move || {
         let mut buffer = [0u8; 4096];
@@ -157,11 +161,11 @@ async fn main() {
             if n == 0 { break; }
             {
                 let mut term = terminal_clone.lock().unwrap();
-                for byte in &buffer[..n] {
-                    term.advance(*byte);
-                }
+                term.advance(&buffer[..n]);
             }
-            let _ = proxy.send_event(());
+            if !redraw_pending_clone.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                let _ = proxy.send_event(());
+            }
         }
     });
 
@@ -173,6 +177,7 @@ async fn main() {
         window: None,
         pty_master: pair.master,
         pty_writer,
+        redraw_pending,
     };
 
     event_loop.run_app(&mut app).unwrap();
