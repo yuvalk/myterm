@@ -13,6 +13,11 @@ use winit::window::Window;
 use crate::terminal::Terminal;
 use crate::renderer::Renderer;
 
+enum CustomEvent {
+    Redraw,
+    Exit,
+}
+
 struct App {
     terminal: Arc<Mutex<Terminal>>,
     renderer: Option<Renderer>,
@@ -22,7 +27,7 @@ struct App {
     redraw_pending: Arc<std::sync::atomic::AtomicBool>,
 }
 
-impl ApplicationHandler<()> for App {
+impl ApplicationHandler<CustomEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         #[allow(unused_mut)]
         let mut window_attributes = Window::default_attributes()
@@ -120,10 +125,17 @@ impl ApplicationHandler<()> for App {
         }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
-        self.redraw_pending.store(false, std::sync::atomic::Ordering::SeqCst);
-        if let Some(window) = &self.window {
-            window.request_redraw();
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: CustomEvent) {
+        match event {
+            CustomEvent::Redraw => {
+                self.redraw_pending.store(false, std::sync::atomic::Ordering::SeqCst);
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+            }
+            CustomEvent::Exit => {
+                event_loop.exit();
+            }
         }
     }
 }
@@ -150,7 +162,7 @@ async fn main() {
     let mut reader = pair.master.try_clone_reader().unwrap();
     let pty_writer = Arc::new(Mutex::new(pair.master.take_writer().unwrap()));
     
-    let event_loop = EventLoop::<()>::with_user_event().build().unwrap();
+    let event_loop = EventLoop::<CustomEvent>::with_user_event().build().unwrap();
     let proxy = event_loop.create_proxy();
     let redraw_pending = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let redraw_pending_clone = redraw_pending.clone();
@@ -164,9 +176,10 @@ async fn main() {
                 term.advance(&buffer[..n]);
             }
             if !redraw_pending_clone.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                let _ = proxy.send_event(());
+                let _ = proxy.send_event(CustomEvent::Redraw);
             }
         }
+        let _ = proxy.send_event(CustomEvent::Exit);
     });
 
     event_loop.set_control_flow(ControlFlow::Wait);
