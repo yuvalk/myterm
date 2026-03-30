@@ -21,93 +21,122 @@ impl Default for Cell {
 }
 
 pub struct Terminal {
+    pub state: TerminalState,
+    pub parser: Parser,
+}
+
+pub struct TerminalState {
     pub rows: usize,
     pub cols: usize,
-    pub grid: Vec<Vec<Cell>>,
+    pub grid: Vec<Cell>,
     pub cursor_row: usize,
     pub cursor_col: usize,
-    pub parser: Parser,
     pub _title: String,
     pub current_fg: Color,
     pub current_bg: Color,
+    pub scroll_offset: usize,
+    pub is_dirty: bool,
 }
 
 impl Terminal {
     pub fn new(rows: usize, cols: usize) -> Self {
-        let mut grid = Vec::with_capacity(rows);
-        for _ in 0..rows {
-            grid.push(vec![Cell::default(); cols]);
+        Self {
+            state: TerminalState::new(rows, cols),
+            parser: Parser::new(),
         }
+    }
+
+    pub fn advance(&mut self, bytes: &[u8]) {
+        let mut handler = TerminalHandler {
+            state: &mut self.state,
+        };
+        self.parser.advance(&mut handler, bytes);
+        self.state.is_dirty = true;
+    }
+
+    pub fn resize(&mut self, rows: usize, cols: usize) {
+        self.state.resize(rows, cols);
+    }
+}
+
+impl TerminalState {
+    pub fn new(rows: usize, cols: usize) -> Self {
+        let grid = vec![Cell::default(); rows * cols];
         Self {
             rows,
             cols,
             grid,
             cursor_row: 0,
             cursor_col: 0,
-            parser: Parser::new(),
             _title: "myterm".to_string(),
             current_fg: Color(255, 255, 255, 255),
             current_bg: Color(0, 0, 0, 0),
+            scroll_offset: 0,
+            is_dirty: true,
         }
     }
 
-    pub fn advance(&mut self, byte: u8) {
-        let mut handler = TerminalHandler {
-            grid: &mut self.grid,
-            cursor_row: &mut self.cursor_row,
-            cursor_col: &mut self.cursor_col,
-            rows: self.rows,
-            cols: self.cols,
-            current_fg: &mut self.current_fg,
-            current_bg: &mut self.current_bg,
-        };
-        self.parser.advance(&mut handler, &[byte]);
+    pub fn get_cell_mut(&mut self, row: usize, col: usize) -> &mut Cell {
+        let actual_row = (row + self.scroll_offset) % self.rows;
+        &mut self.grid[actual_row * self.cols + col]
+    }
+
+    pub fn get_cell(&self, row: usize, col: usize) -> &Cell {
+        let actual_row = (row + self.scroll_offset) % self.rows;
+        &self.grid[actual_row * self.cols + col]
+    }
+
+    pub fn scroll_up(&mut self) {
+        let new_row_start = (self.scroll_offset) % self.rows;
+        for col in 0..self.cols {
+            self.grid[new_row_start * self.cols + col] = Cell::default();
+        }
+        self.scroll_offset = (self.scroll_offset + 1) % self.rows;
+        self.is_dirty = true;
     }
 
     pub fn resize(&mut self, rows: usize, cols: usize) {
+        let mut new_grid = vec![Cell::default(); rows * cols];
+        let min_rows = rows.min(self.rows);
+        let min_cols = cols.min(self.cols);
+        for r in 0..min_rows {
+            for c in 0..min_cols {
+                new_grid[r * cols + c] = self.get_cell(r, c).clone();
+            }
+        }
         self.rows = rows;
         self.cols = cols;
-        self.grid.resize(rows, vec![Cell::default(); cols]);
-        for row in self.grid.iter_mut() {
-            row.resize(cols, Cell::default());
-        }
-        if self.cursor_row >= rows {
-            self.cursor_row = rows - 1;
-        }
-        if self.cursor_col >= cols {
-            self.cursor_col = cols - 1;
-        }
+        self.grid = new_grid;
+        self.scroll_offset = 0;
+        self.cursor_row = self.cursor_row.min(rows - 1);
+        self.cursor_col = self.cursor_col.min(cols - 1);
+        self.is_dirty = true;
     }
 }
 
 struct TerminalHandler<'a> {
-    grid: &'a mut Vec<Vec<Cell>>,
-    cursor_row: &'a mut usize,
-    cursor_col: &'a mut usize,
-    rows: usize,
-    cols: usize,
-    current_fg: &'a mut Color,
-    current_bg: &'a mut Color,
+    state: &'a mut TerminalState,
 }
 
 impl<'a> Perform for TerminalHandler<'a> {
     fn print(&mut self, c: char) {
-        if *self.cursor_row >= self.rows || *self.cursor_col >= self.cols {
+        let r = self.state.cursor_row;
+        let c_col = self.state.cursor_col;
+        if r >= self.state.rows || c_col >= self.state.cols {
             return;
         }
-        self.grid[*self.cursor_row][*self.cursor_col] = Cell {
+        *self.state.get_cell_mut(r, c_col) = Cell {
             c,
-            fg: *self.current_fg,
-            bg: *self.current_bg,
+            fg: self.state.current_fg,
+            bg: self.state.current_bg,
         };
-        *self.cursor_col += 1;
-        if *self.cursor_col >= self.cols {
-            *self.cursor_col = 0;
-            *self.cursor_row += 1;
-            if *self.cursor_row >= self.rows {
-                *self.cursor_row = self.rows - 1;
-                self.grid.remove(0);
-                self.grid.push(vec![Cell::default(); self.cols]);
+        self.state.cursor_col += 1;
+        if self.state.cursor_col >= self.state.cols {
+            self.state.cursor_col = 0;
+            self.state.cursor_row += 1;
+            if self.state.cursor_row >= self.state.rows {
+                self.state.cursor_row = self.state.rows - 1;
+                self.state.scroll_up();
             }
         }
     }
@@ -115,24 +144,23 @@ impl<'a> Perform for TerminalHandler<'a> {
     fn execute(&mut self, byte: u8) {
         match byte {
             b'\n' => {
-                *self.cursor_row += 1;
-                if *self.cursor_row >= self.rows {
-                    *self.cursor_row = self.rows - 1;
-                    self.grid.remove(0);
-                    self.grid.push(vec![Cell::default(); self.cols]);
+                self.state.cursor_row += 1;
+                if self.state.cursor_row >= self.state.rows {
+                    self.state.cursor_row = self.state.rows - 1;
+                    self.state.scroll_up();
                 }
             }
             b'\r' => {
-                *self.cursor_col = 0;
+                self.state.cursor_col = 0;
             }
             b'\x08' => {
-                if *self.cursor_col > 0 {
-                    *self.cursor_col -= 1;
+                if self.state.cursor_col > 0 {
+                    self.state.cursor_col -= 1;
                 }
             }
             b'\t' => {
-                let next_tab = (*self.cursor_col + 8) & !7;
-                *self.cursor_col = next_tab.min(self.cols - 1);
+                let next_tab = (self.state.cursor_col + 8) & !7;
+                self.state.cursor_col = next_tab.min(self.state.cols - 1);
             }
             _ => {}
         }
@@ -144,8 +172,8 @@ impl<'a> Perform for TerminalHandler<'a> {
                 for param in params {
                     match param {
                         [0] => {
-                            *self.current_fg = Color(255, 255, 255, 255);
-                            *self.current_bg = Color(0, 0, 0, 0);
+                            self.state.current_fg = Color(255, 255, 255, 255);
+                            self.state.current_bg = Color(0, 0, 0, 0);
                         }
                         _ => {}
                     }
@@ -155,40 +183,40 @@ impl<'a> Perform for TerminalHandler<'a> {
                 let mut iter = params.iter();
                 let row = iter.next().and_then(|p| p.first()).cloned().unwrap_or(1) as usize;
                 let col = iter.next().and_then(|p| p.first()).cloned().unwrap_or(1) as usize;
-                *self.cursor_row = (row.saturating_sub(1)).min(self.rows - 1);
-                *self.cursor_col = (col.saturating_sub(1)).min(self.cols - 1);
+                self.state.cursor_row = (row.saturating_sub(1)).min(self.state.rows - 1);
+                self.state.cursor_col = (col.saturating_sub(1)).min(self.state.cols - 1);
             }
             'J' => {
                 let mode = params.iter().next().and_then(|p| p.first()).cloned().unwrap_or(0);
                 match mode {
                     2 => {
-                        for row in self.grid.iter_mut() {
-                            for cell in row.iter_mut() {
-                                *cell = Cell::default();
-                            }
+                        for cell in self.state.grid.iter_mut() {
+                            *cell = Cell::default();
                         }
-                        *self.cursor_row = 0;
-                        *self.cursor_col = 0;
+                        self.state.cursor_row = 0;
+                        self.state.cursor_col = 0;
+                        self.state.scroll_offset = 0;
                     }
                     _ => {}
                 }
             }
             'K' => {
                  let mode = params.iter().next().and_then(|p| p.first()).cloned().unwrap_or(0);
+                 let row = self.state.cursor_row;
                  match mode {
                      0 => {
-                        for col in *self.cursor_col..self.cols {
-                            self.grid[*self.cursor_row][col] = Cell::default();
+                        for col in self.state.cursor_col..self.state.cols {
+                            *self.state.get_cell_mut(row, col) = Cell::default();
                         }
                      }
                      1 => {
-                        for col in 0..=*self.cursor_col {
-                            self.grid[*self.cursor_row][col] = Cell::default();
+                        for col in 0..=self.state.cursor_col {
+                            *self.state.get_cell_mut(row, col) = Cell::default();
                         }
                      }
                      2 => {
-                        for cell in self.grid[*self.cursor_row].iter_mut() {
-                            *cell = Cell::default();
+                        for col in 0..self.state.cols {
+                            *self.state.get_cell_mut(row, col) = Cell::default();
                         }
                      }
                      _ => {}
