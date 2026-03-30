@@ -68,9 +68,15 @@ impl ApplicationHandler<()> for App {
                 }
             }
             WindowEvent::RedrawRequested => {
+                let start = std::time::Instant::now();
                 if let (Some(renderer), Some(_window)) = (&mut self.renderer, &self.window) {
                     let term = self.terminal.lock().unwrap();
                     renderer.render(&term);
+                }
+                let duration = start.elapsed();
+                log::trace!("Render took {:?}", duration);
+                if duration.as_millis() > 16 {
+                    log::warn!("Slow frame: {:?}", duration);
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
